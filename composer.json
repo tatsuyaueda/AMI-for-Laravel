@@ -1,0 +1,15 @@
+{
+    "name": "tatsuyaueda/ami-for-laravel",
+    "description": "AMI(Asterisk Manager Interface) for Laravel",
+    "type": "library",
+    "require": {
+        "marcelog/pami": "^2.0"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Tatsuya Ueda",
+            "email": "ml@tatsuya.info"
+        }
+    ]
+}
