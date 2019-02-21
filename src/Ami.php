@@ -35,7 +35,7 @@ class Ami
         $options = array(
             'host' => env('ASTERISK_AMI_HOST'),
             'scheme' => 'tcp://',
-            'port' => env('ASTERISK_AMI_HOST',5038),
+            'port' => env('ASTERISK_AMI_PORT',5038),
             'username' => env('ASTERISK_AMI_USER'),
             'secret' => env('ASTERISK_AMI_SECRET'),
             'connect_timeout' => 10,
