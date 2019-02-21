@@ -11,5 +11,19 @@
             "name": "Tatsuya Ueda",
             "email": "ml@tatsuya.info"
         }
-    ]
+    ],
+    "autoload": {
+       "psr-4": {
+           "TatsuyaUeda\\AmiForLaravel\\": "src/"
+       }
+    },
+    "prefer-stable": true,
+    "minimum-stability": "dev",
+    "extra": {
+        "laravel": {
+            "providers": [
+                "TatsuyaUeda\\AmiForLaravel\\AmiServiceProvider"
+            ]
+        }
+    }
 }
