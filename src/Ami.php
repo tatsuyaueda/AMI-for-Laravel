@@ -4,10 +4,14 @@ namespace TatsuyaUeda\AmiForLaravel;
 
 use Illuminate\Support\Carbon;
 use PAMI\Client\Impl\ClientImpl;
+use PAMI\Message\Action\CoreShowChannelsAction;
+use PAMI\Message\Action\GetConfigAction;
 use PAMI\Message\Action\QueueRuleAction;
 use PAMI\Message\Action\QueuesAction;
 use PAMI\Message\Action\QueueStatusAction;
 use PAMI\Message\Action\QueueSummaryAction;
+use PAMI\Message\Action\StatusAction;
+use PAMI\Message\Action\UpdateConfigAction;
 use PAMI\Message\Event\DialBeginEvent;
 use PAMI\Message\Event\DialEndEvent;
 use PAMI\Message\Event\EventMessage;
@@ -35,11 +39,11 @@ class Ami
         $options = array(
             'host' => env('ASTERISK_AMI_HOST'),
             'scheme' => 'tcp://',
-            'port' => env('ASTERISK_AMI_PORT',5038),
+            'port' => env('ASTERISK_AMI_PORT', 5038),
             'username' => env('ASTERISK_AMI_USER'),
             'secret' => env('ASTERISK_AMI_SECRET'),
             'connect_timeout' => 10,
-            'read_timeout' => 20
+            'read_timeout' => 50
         );
 
         $this->client = new ClientImpl($options);
@@ -116,7 +120,13 @@ class Ami
             // 3sごとに更新
             if ($time == null || time() - $time == 3) {
 
-                foreach ($this->actionQueueStatus()->getEvents() as $event){
+                $events = [];
+                $events = array_merge($events, $this->actionQueueStatus()->getEvents());
+//                $events = array_merge($events, $this->actionCoreShowChannels()->getEvents());
+                $events = array_merge($events, $this->actionStatus()->getEvents());
+//                $this->actionGetConfig();
+
+                foreach ($events as $event) {
                     $eventName = $event->getName();
                     $className = "\\TatsuyaUeda\\AmiForLaravel\\Events\\" . $eventName . "Event";
 
@@ -143,6 +153,42 @@ class Ami
         $action = new QueueStatusAction();
         return $this->client->send($action);
 
+    }
+
+    public function actionCoreShowChannels()
+    {
+
+        $action = new CoreShowChannelsAction();
+        return $this->client->send($action);
+
+    }
+
+    public function actionStatus()
+    {
+
+        $action = new StatusAction();
+        return $this->client->send($action);
+
+    }
+
+
+    public function actionGetConfig()
+    {
+
+//        $action = new GetConfigAction('queues.conf');
+//        $a = $this->client->send($action);
+//        var_dump($a);
+
+        $b = new UpdateConfigAction();
+        $b->setSrcFilename('queues.conf');
+        $b->setDstFilename('queues.conf');
+        $b->setAction('Update');
+        $b->setCat('Cust');
+        $b->setVar('maxlen');
+        $b->setValue('5');
+        $b->setReload('Queues');
+        $c = $this->client->send($b);
+        var_dump($c);
     }
 
 }
