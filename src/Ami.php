@@ -2,23 +2,15 @@
 
 namespace TatsuyaUeda\AmiForLaravel;
 
-use Illuminate\Support\Carbon;
 use PAMI\Client\Impl\ClientImpl;
 use PAMI\Message\Action\CoreShowChannelsAction;
-use PAMI\Message\Action\GetConfigAction;
-use PAMI\Message\Action\QueueRuleAction;
-use PAMI\Message\Action\QueuesAction;
+use PAMI\Message\Action\DBGetAction;
+use PAMI\Message\Action\DBPutAction;
 use PAMI\Message\Action\QueueStatusAction;
-use PAMI\Message\Action\QueueSummaryAction;
 use PAMI\Message\Action\StatusAction;
 use PAMI\Message\Action\UpdateConfigAction;
-use PAMI\Message\Event\DialBeginEvent;
-use PAMI\Message\Event\DialEndEvent;
 use PAMI\Message\Event\EventMessage;
-use PAMI\Message\Event\UnknownEvent;
-use PAMI\Message\Event\OriginateResponseEvent;
 use ReflectionClass;
-use TatsuyaUeda\AmiForLaravel\Events\DeviceStateChangeEvent;
 
 /**
  * Class AsteriskLinker
@@ -85,65 +77,56 @@ class Ami
                     // PHP-AMIで対応していないイベントの場合
                     switch ($event->getKey('EventName')) {
                         case 'AgentComplete':
-                            $eventName = 'AgentComplete';
-                            break;
                         case 'Unhold':
-                            $eventName = 'Unhold';
+                            $eventName = $event->getKey('EventName');
                             break;
                     }
                 } else {
                     $eventName = $event->getName();
                 }
 
-                // クラス名を生成
-                $className = "\\TatsuyaUeda\\AmiForLaravel\\Events\\" . $eventName . "Event";
-
-                if (class_exists($className)) {
-                    // クラスが存在していれば、コンストラクタを呼ぶ
-                    event(call_user_func(
-                        array(new ReflectionClass($className), 'newInstance'),
-                        $event
-                    ));
-                } else {
-                    // 存在しなければ、吐き出す
-                    var_dump($event);
-                }
+                $this->invokeEvent($eventName, $event);
             }
         );
 
-        $time = null;
+        $time3s = null;
 
         while (true) {
             $this->client->process();
             usleep(1000);
 
             // 3sごとに更新
-            if ($time == null || time() - $time == 3) {
+            // ToDo:この中で書くのはいまいち
+            if ($time3s == null || time() - $time3s == 3) {
 
                 $events = [];
                 $events = array_merge($events, $this->actionQueueStatus()->getEvents());
-//                $events = array_merge($events, $this->actionCoreShowChannels()->getEvents());
                 $events = array_merge($events, $this->actionStatus()->getEvents());
-//                $this->actionGetConfig();
 
                 foreach ($events as $event) {
                     $eventName = $event->getName();
-                    $className = "\\TatsuyaUeda\\AmiForLaravel\\Events\\" . $eventName . "Event";
-
-                    if (class_exists($className)) {
-                        // クラスが存在していれば、コンストラクタを呼ぶ
-                        event(call_user_func(
-                            array(new ReflectionClass($className), 'newInstance'),
-                            $event
-                        ));
-                    } else {
-                        // 存在しなければ、吐き出す
-                        var_dump($event);
-                    }
+                    $this->invokeEvent($eventName, $event);
                 }
 
-                $time = time();
+                $time3s = time();
             }
+        }
+    }
+
+    private function invokeEvent($eventName, $event)
+    {
+        $className = "\\TatsuyaUeda\\AmiForLaravel\\Events\\" . $eventName . "Event";
+
+        if (class_exists($className)) {
+            // クラスが存在していれば、コンストラクタを呼ぶ
+            event(call_user_func(
+                array(new ReflectionClass($className), 'newInstance'),
+                $event
+            ));
+        } else {
+            // 存在しなければ、吐き出す
+            var_dump('Unknown Event from AMI Package');
+            var_dump($event);
         }
     }
 
@@ -171,24 +154,69 @@ class Ami
 
     }
 
+    /**
+     * @param $family
+     * @param $key
+     * @throws \PAMI\Client\Exception\ClientException
+     */
+    public function actionDBGet($family, $key)
+    {
 
-    public function actionGetConfig()
+        $action = new DBGetAction($family, $key);
+        $result = $this->client->send($action);
+
+        var_dump($result);
+
+        foreach ($result->getEvents() as $event) {
+            $eventName = $event->getName();
+            $this->invokeEvent($eventName, $event);
+        }
+    }
+
+    /**
+     *
+     */
+    public function actionDBPut($family, $key, $value)
+    {
+
+        $action = new DBPutAction($family, $key, $value);
+        return $this->client->send($action);
+
+    }
+
+    public function actionGetConfig($queueName, $value)
     {
 
 //        $action = new GetConfigAction('queues.conf');
 //        $a = $this->client->send($action);
 //        var_dump($a);
 
-        $b = new UpdateConfigAction();
-        $b->setSrcFilename('queues.conf');
-        $b->setDstFilename('queues.conf');
-        $b->setAction('Update');
-        $b->setCat('Cust');
-        $b->setVar('maxlen');
-        $b->setValue('5');
-        $b->setReload('Queues');
-        $c = $this->client->send($b);
-        var_dump($c);
+    }
+
+    /**
+     * ConfigをUpdateする
+     * @param $filename
+     * @param $category
+     * @param $var
+     * @param $value
+     * @param $reload
+     * @throws \PAMI\Client\Exception\ClientException
+     */
+    public function actionUpdateConfig($filename, $category, $var, $value, $reload = '')
+    {
+
+        $action = new UpdateConfigAction();
+        $action->setSrcFilename($filename);
+        $action->setDstFilename($filename);
+        $action->setAction('Update');
+        $action->setCat($category);
+        $action->setVar($var);
+        $action->setValue($value);
+        $action->setReload($reload);
+
+        $result = $this->client->send($action);
+        var_dump($result);
+
     }
 
 }
