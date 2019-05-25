@@ -165,8 +165,6 @@ class Ami
         $action = new DBGetAction($family, $key);
         $result = $this->client->send($action);
 
-        var_dump($result);
-
         foreach ($result->getEvents() as $event) {
             $eventName = $event->getName();
             $this->invokeEvent($eventName, $event);
